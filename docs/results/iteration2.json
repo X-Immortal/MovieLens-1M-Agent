@@ -1,20 +1,74 @@
 {
-  "status": "completed",
+  "description": "报告所用清洗统计、模型参数与评价指标，从已完成报告及保存的降维模型提取。",
   "experiment_id": "20261020T153549Z-d88b3980",
   "source_task_id": "20260930T142636Z-939659b5",
+  "input_data_version": "ml-1m-local-raw-v1",
   "cleaned_data_version": "ml-1m-clean-v1-20260930T142636Z-939659b5",
   "rule_version": "default-v1",
   "boundaries": {
     "T1": "2002-08-04T23:40:58Z",
     "T2": "2002-11-16T20:45:24Z",
     "T1_epoch": 1028504458,
-    "T2_epoch": 1037479524,
-    "basis": "Iteration 1 注册的固定时间边界；后续迭代必须复用"
+    "T2_epoch": 1037479524
   },
   "seed": 20261020,
-  "components": 2,
-  "requested_clusters": null,
-  "command": "python3 /app/ml_experiment.py train --components 2",
+  "table_counts": {
+    "users": {
+      "before": 6946,
+      "cleaned": 6112,
+      "repaired": 0,
+      "duplicates": 118,
+      "conflicts": 217,
+      "rejected": 499
+    },
+    "movies": {
+      "before": 4465,
+      "cleaned": 3941,
+      "repaired": 25,
+      "duplicates": 117,
+      "conflicts": 105,
+      "rejected": 302
+    },
+    "ratings": {
+      "before": 1150241,
+      "cleaned": 1000209,
+      "repaired": 0,
+      "duplicates": 17257,
+      "conflicts": 18750,
+      "rejected": 114025
+    }
+  },
+  "quality": {
+    "before": {
+      "Accurate": 91.94,
+      "Complete": 97.65,
+      "Unique": 89.48,
+      "Up-to-date": 93.35,
+      "Consistent": 90.12
+    },
+    "after": {
+      "Accurate": 100.0,
+      "Complete": 100.0,
+      "Unique": 100.0,
+      "Up-to-date": 100.0,
+      "Consistent": 100.0
+    },
+    "delta": {
+      "Accurate": 8.06,
+      "Complete": 2.35,
+      "Unique": 10.52,
+      "Up-to-date": 6.65,
+      "Consistent": 9.88
+    },
+    "method": {
+      "Accurate": "语义约束满足率；评分为 1-5、ID 为正整数、时间戳在 MovieLens 历史窗口内。",
+      "Complete": "必需字段非空且字段数量正确的行比例。",
+      "Unique": "业务键去重后的行数 / 总行数；ratings 业务键为 user、movie、timestamp。",
+      "Up-to-date": "ratings 时间戳落在 2000-01-01 至 2004-11-09 历史窗口内的比例；T1/T2 仅用于区间计数。",
+      "Consistent": "解析、类别取值和 ratings 跨表引用均满足规则的行比例。",
+      "limitations": "格式和引用一致不代表用户自填属性现实真实；历史数据的时效性只能按固定窗口判断。"
+    }
+  },
   "classifiers": {
     "models": {
       "logistic_regression": {
@@ -70,8 +124,7 @@
             ]
           ],
           "samples": 5368
-        },
-        "model_file": "logistic_regression.joblib"
+        }
       },
       "decision_tree": {
         "parameter": "max_depth=8",
@@ -124,8 +177,7 @@
             ]
           ],
           "samples": 5368
-        },
-        "model_file": "decision_tree.joblib"
+        }
       }
     },
     "feature_columns": [
@@ -335,7 +387,6 @@
             "explanation": "Children's、Adventure、Fantasy"
           }
         ],
-        "assignments_file": "kmeans_assignments.csv",
         "new_user_policy": "仅登记训练期已有用户；层次聚类不支持直接预测新用户。"
       },
       "agglomerative": {
@@ -463,7 +514,6 @@
             "explanation": "Film-Noir、Thriller、Crime"
           }
         ],
-        "assignments_file": "agglomerative_assignments.csv",
         "new_user_policy": "仅登记训练期已有用户；层次聚类不支持直接预测新用户。"
       }
     },
@@ -503,7 +553,60 @@
             "comparison_note": "原始与降维后使用同一聚类算法、相同用户和群体数量；轮廓系数分别在各自特征空间计算。"
           }
         },
-        "coordinates_file": "pca_coordinates.csv"
+        "component_directions": [
+          {
+            "component": 1,
+            "explained_variance_ratio": 0.09736905246973038,
+            "top_features": [
+              {
+                "feature": "frequency:Action",
+                "weight": 0.4052000641822815
+              },
+              {
+                "feature": "frequency:Sci-Fi",
+                "weight": 0.38818708062171936
+              },
+              {
+                "feature": "frequency:Adventure",
+                "weight": 0.38707712292671204
+              },
+              {
+                "feature": "frequency:Drama",
+                "weight": -0.2950466275215149
+              },
+              {
+                "feature": "preference:Action",
+                "weight": 0.24778102338314056
+              }
+            ]
+          },
+          {
+            "component": 2,
+            "explained_variance_ratio": 0.08940421044826508,
+            "top_features": [
+              {
+                "feature": "frequency:Children's",
+                "weight": 0.41524946689605713
+              },
+              {
+                "feature": "frequency:Animation",
+                "weight": 0.377271831035614
+              },
+              {
+                "feature": "frequency:Musical",
+                "weight": 0.321931391954422
+              },
+              {
+                "feature": "frequency:Thriller",
+                "weight": -0.2933145761489868
+              },
+              {
+                "feature": "frequency:Crime",
+                "weight": -0.2824515104293823
+              }
+            ]
+          }
+        ]
       },
       "truncated_svd": {
         "components": 2,
@@ -538,10 +641,62 @@
             "comparison_note": "原始与降维后使用同一聚类算法、相同用户和群体数量；轮廓系数分别在各自特征空间计算。"
           }
         },
-        "coordinates_file": "truncated_svd_coordinates.csv"
+        "component_directions": [
+          {
+            "component": 1,
+            "explained_variance_ratio": 0.09736915677785873,
+            "top_features": [
+              {
+                "feature": "frequency:Action",
+                "weight": 0.4051588177680969
+              },
+              {
+                "feature": "frequency:Sci-Fi",
+                "weight": 0.38821542263031006
+              },
+              {
+                "feature": "frequency:Adventure",
+                "weight": 0.3870779573917389
+              },
+              {
+                "feature": "frequency:Drama",
+                "weight": -0.2950419485569
+              },
+              {
+                "feature": "preference:Action",
+                "weight": 0.24776668846607208
+              }
+            ]
+          },
+          {
+            "component": 2,
+            "explained_variance_ratio": 0.08940412849187851,
+            "top_features": [
+              {
+                "feature": "frequency:Children's",
+                "weight": 0.4151901602745056
+              },
+              {
+                "feature": "frequency:Animation",
+                "weight": 0.377231627702713
+              },
+              {
+                "feature": "frequency:Musical",
+                "weight": 0.32194212079048157
+              },
+              {
+                "feature": "frequency:Thriller",
+                "weight": -0.2933582663536072
+              },
+              {
+                "feature": "frequency:Crime",
+                "weight": -0.2825917899608612
+              }
+            ]
+          }
+        ]
       }
     },
     "resource_note": "input_matrix_bytes 与 coordinate_bytes 仅衡量 NumPy 特征矩阵和坐标数组；peak_rss_increment_kib 为进程历史峰值增长，可能因前序步骤已分配内存而为 0，不代表降维无需内存。"
-  },
-  "algorithm_note": "课程分类、聚类、降维 PPT 与作业四材料未在仓库找到；分类按任务指定算法，聚类与降维采用常见课程算法，需与课程材料最终核对。"
+  }
 }

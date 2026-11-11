@@ -12,14 +12,13 @@ import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from agent import MovieLensAgent
+from agent import MovieLensAgent, conversation_history
 from ml_experiment import RUNTIME
-
 
 WEB = Path(__file__).parent / "web"
 SESSIONS = RUNTIME / "sessions"
@@ -147,17 +146,22 @@ def current_stage(job: dict) -> str:
         return job["stage"]
 
 
-def do_agent(job_id: str, session_id: str, prompt: str, previous_task: str | None, previous_answer: dict | None) -> None:
+def do_agent(job_id: str, session_id: str, prompt: str, messages: list[dict]) -> None:
+    def on_tool(name: str) -> None:
+        with LOCK:
+            JOBS[job_id].update(stage=f"正在执行 {name}", is_clean=name == "hadoop_streaming")
+
     try:
-        answer = MovieLensAgent().run(prompt, previous_task, previous_answer)
+        answer = MovieLensAgent().run(prompt, messages, on_tool)
         with LOCK:
             session = get_session(session_id)
             if session is None:
                 raise FileNotFoundError("会话文件不存在。")
             session["messages"].append({"role": "assistant", "answer": answer})
+            session["llm_messages"] = messages
             save_session(session)
             JOBS[job_id].update(state="completed", answer=answer)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Report background worker failures to job polling.
         with LOCK:
             JOBS[job_id].update(state="failed", error=str(exc))
 
@@ -170,7 +174,7 @@ def do_train(job_id: str) -> None:
             JOBS[job_id].update(state="completed" if process.returncode == 0 else "failed",
                                 error=process.stderr[-3000:] if process.returncode else None,
                                 output=process.stdout[-3000:])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Report subprocess worker failures to job polling.
         with LOCK:
             JOBS[job_id].update(state="failed", error=str(exc))
 
@@ -215,7 +219,7 @@ class Handler(BaseHTTPRequestHandler):
             self.json(200, bootstrap())
         elif path.startswith("/api/sessions/"):
             session = get_session(path.rsplit("/", 1)[-1])
-            self.json(200, session) if session else self.json(404, {"error": "会话不存在。"})
+            self.json(200, {key: value for key, value in session.items() if key != "llm_messages"}) if session else self.json(404, {"error": "会话不存在。"})
         elif path.startswith("/api/jobs/"):
             with LOCK:
                 job = JOBS.get(path.rsplit("/", 1)[-1])
@@ -239,6 +243,29 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self.json(404, {"error": "页面不存在。"})
 
+    def do_DELETE(self) -> None:
+        match = re.fullmatch(r"/api/sessions/([0-9a-f]{32})", urlsplit(self.path).path)
+        if not match:
+            self.json(404, {"error": "会话不存在。"})
+            return
+        session_id = match.group(1)
+        with LOCK:
+            if any(job["state"] == "running" and job.get("session_id") == session_id
+                   for job in JOBS.values()):
+                self.json(409, {"error": "此会话仍有分析任务在运行，请完成后再删除。"})
+                return
+            try:
+                (SESSIONS / f"{session_id}.json").unlink()
+            except FileNotFoundError:
+                self.json(404, {"error": "会话不存在。"})
+                return
+            except OSError:
+                self.json(500, {"error": "无法删除会话，请检查文件权限后重试。"})
+                return
+            for job_id in [key for key, job in JOBS.items() if job.get("session_id") == session_id]:
+                del JOBS[job_id]
+        self.json(200, {"deleted": session_id})
+
     def do_POST(self) -> None:
         path = urlsplit(self.path).path
         try:
@@ -248,12 +275,13 @@ class Handler(BaseHTTPRequestHandler):
                 return
             payload = json.loads(self.rfile.read(length) or b"{}")
             if not isinstance(payload, dict):
-                raise ValueError("请求内容必须是对象。")
+                self.json(400, {"error": "请求内容必须是对象。"})
+                return
         except (ValueError, json.JSONDecodeError):
             self.json(400, {"error": "请求内容不是有效 JSON。"})
             return
         if path == "/api/sessions":
-            session = {"id": uuid.uuid4().hex, "created_at": datetime.now(timezone.utc).isoformat(),
+            session = {"id": uuid.uuid4().hex, "created_at": datetime.now(UTC).isoformat(),
                        "title": "新对话", "messages": []}
             with LOCK:
                 save_session(session)
@@ -273,8 +301,7 @@ class Handler(BaseHTTPRequestHandler):
                        for job in JOBS.values()):
                     self.json(409, {"error": "此会话仍有分析任务在运行。"})
                     return
-                prior = next((item["answer"] for item in reversed(session["messages"])
-                              if item.get("role") == "assistant"), None)
+                messages = conversation_history(session)
                 session["messages"].append({"role": "user", "content": prompt.strip()})
                 if len(session["messages"]) == 1:
                     session["title"] = prompt.strip()[:28]
@@ -282,11 +309,8 @@ class Handler(BaseHTTPRequestHandler):
                 job_id = uuid.uuid4().hex
                 JOBS[job_id] = {"id": job_id, "state": "running", "kind": "agent",
                                 "session_id": session_id, "stage": "正在调用 Agent 与分析工具",
-                                "started_at": time.time(),
-                                "is_clean": any(word in prompt for word in
-                                                ("重新清洗", "执行清洗", "运行清洗", "运行 Hadoop", "开始清洗"))}
-                POOL.submit(do_agent, job_id, session_id, prompt.strip(),
-                            prior.get("task") if prior else None, prior)
+                                "started_at": time.time(), "is_clean": False}
+                POOL.submit(do_agent, job_id, session_id, prompt.strip(), messages)
             self.json(202, {"job_id": job_id})
         elif path == "/api/train":
             with LOCK:

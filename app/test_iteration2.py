@@ -1,21 +1,18 @@
-"""Checks for temporal features, persisted tools, routing, and error boundaries."""
+"""Checks for temporal features, persisted tools, and error boundaries."""
 from __future__ import annotations
 
 import json
-import os
 import time
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-import pandas as pd
-
-from agent import MovieLensAgent, route
-from ml_experiment import source_report, strict_prior
 import ml_tools
+import pandas as pd
 import pipeline
 import web_server
+from ml_experiment import source_report, strict_prior
 from ml_tools import TOOLS, ToolError, experiment
 
 
@@ -75,7 +72,7 @@ class ToolTests(unittest.TestCase):
             TOOLS["kmeans"](1, 5)
 
     def test_training_pair_is_removed_from_prediction_history(self):
-        manifest, directory = experiment()
+        _, directory = experiment()
         user_id, movie_id = 1, 1
         pair = pd.read_csv(directory / "pair_snapshot_t1.csv")
         selected = pair[(pair.UserID == user_id) & (pair.MovieID == movie_id)]
@@ -87,65 +84,14 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(prediction["user_train_ratings"], original_count - int(selected.pair_count.iloc[0]))
 
     def test_missing_model_and_version_mismatch(self):
-        with TemporaryDirectory() as temporary, patch.object(ml_tools, "RUNTIME", Path(temporary)):
-            with self.assertRaisesRegex(ToolError, "尚未训练"):
-                experiment()
+        with (TemporaryDirectory() as temporary, patch.object(ml_tools, "RUNTIME", Path(temporary)),
+              self.assertRaisesRegex(ToolError, "尚未训练")):
+            experiment()
         source = source_report()
         changed = {**source, "cleaned_data_version": "different-version"}
-        with patch.object(ml_tools, "source_report", return_value=changed):
-            with self.assertRaisesRegex(ToolError, "版本"):
-                experiment()
-
-    def test_agent_selects_pairs_and_single_tool(self):
-        agent = MovieLensAgent()
-        pair = agent.run("预测 UserID 1 对 MovieID 1 是否打高分")
-        one = agent.run("用逻辑回归预测 UserID 1 对 MovieID 1")
-        self.assertEqual(pair["tools"], ["logistic_regression", "decision_tree"])
-        self.assertEqual(one["tools"], ["logistic_regression"])
-        self.assertEqual(agent.run("比较 PCA 和 SVD 降维结果")["tools"], ["pca", "truncated_svd"])
-        self.assertEqual(agent.run("查看 K-Means 和层次聚类")["tools"], ["kmeans", "agglomerative"])
-        self.assertEqual(agent.run("比较 PCA 与 SVD 的二维降维结果")["tools"], ["pca", "truncated_svd"])
-        self.assertEqual(agent.run("查看 UserID 1 的 K-Means 和层次聚类群体")["tools"],
-                         ["kmeans", "agglomerative"])
-        subset = agent.run("查看用户 1、2、3 的 K-Means 群体")
-        self.assertEqual(len(subset["results"][0]["selected_users"]), 3)
-        follow_up = agent.run("为什么？", pair["task"], pair)
-        self.assertIn("测试 F1", follow_up["explanation"])
-        self.assertEqual(agent.run("预测 UserID 1")["status"], "failed")
-
-    def test_route_does_not_start_cleaning_for_report_query(self):
-        self.assertEqual(route("查看清洗前后质量报告")["task"], "quality")
-        self.assertEqual(route("重新清洗并运行 Hadoop")["task"], "clean")
-        self.assertEqual(route("查看历史实验与模型版本")["task"], "history")
-        self.assertEqual(MovieLensAgent().run("查看历史实验")["status"], "completed")
-
-    def test_queries_and_followups_work_without_deepseek_key(self):
-        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": ""}):
-            agent = MovieLensAgent()
-            self.assertFalse(agent.llm.api_key)
-            prediction = agent.run("预测 UserID 1 对 MovieID 1 是否打高分")
-            self.assertEqual(prediction["status"], "completed")
-            answer = agent.run("为什么？", prediction["task"], prediction)
-            self.assertIn("测试 F1", answer["explanation"])
-
-    def test_reduction_options_use_registered_results_and_report_unmet_threshold(self):
-        request = "查看用户 1、2、3 的 PCA 降维，用 K-Means k=4 对照，信息保留至少 20%"
-        selected = route(request)
-        self.assertEqual(selected["task"], "reduction")
-        self.assertEqual(selected["tools"], ["pca"])
-        self.assertEqual(selected["comparison_tools"], ["kmeans"])
-        self.assertEqual(selected["user_ids"], [1, 2, 3])
-        result = MovieLensAgent().run(request)
-        self.assertEqual(result["status"], "completed")
-        self.assertEqual(set(result["results"][0]["comparison"]), {"kmeans"})
-        self.assertEqual(len(result["results"][0]["selected_users"]), 3)
-        self.assertFalse(result["results"][0]["retention_met"])
-        self.assertEqual(result["results"][0]["retention_threshold"], 0.2)
-
-    def test_unavailable_reduction_options_fail_without_substituting_other_results(self):
-        agent = MovieLensAgent()
-        self.assertIn("只保存 4 群", agent.run("用 PCA 降维，K-Means k=5 对照")["error"])
-        self.assertIn("没有已登记的降维坐标", agent.run("查看 UserID 999999 的 PCA 坐标")["error"])
+        with (patch.object(ml_tools, "source_report", return_value=changed),
+              self.assertRaisesRegex(ToolError, "版本")):
+            experiment()
 
 
 class WebProgressTests(unittest.TestCase):

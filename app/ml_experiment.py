@@ -5,10 +5,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import resource
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import joblib
@@ -18,12 +17,17 @@ from sklearn.cluster import AgglomerativeClustering, KMeans
 from sklearn.compose import ColumnTransformer
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (confusion_matrix, f1_score, precision_score,
-                             recall_score, roc_auc_score, silhouette_score)
+from sklearn.metrics import (
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+    silhouette_score,
+)
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.tree import DecisionTreeClassifier
-
 
 RUNTIME = Path(os.environ.get("RUNTIME_DIR", "/runtime"))
 NUMERIC = ["release_year", "user_count", "user_mean", "movie_count", "movie_mean"]
@@ -74,7 +78,7 @@ def read_clean(report: dict) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     movies["MovieID"] = movies["MovieID"].astype(np.int64)
     genres = sorted({genre for value in movies["genres"] for genre in value.split("|")})
     for genre in genres:
-        movies[f"genre:{genre}"] = movies["genres"].str.split("|").map(lambda parts: int(genre in parts))
+        movies[f"genre:{genre}"] = movies["genres"].str.split("|").map(lambda parts, target=genre: int(target in parts))
     movies["release_year"] = pd.to_numeric(movies["title"].str.extract(r"\((\d{4})\)$")[0], errors="coerce").fillna(0)
     expected = report["quality"]["summaries"]["after"]
     for table, frame in (("ratings", ratings), ("users", users), ("movies", movies)):
@@ -134,7 +138,7 @@ def classification_metrics(y: np.ndarray, probability: np.ndarray, threshold: fl
         "f1": float(f1_score(y, predicted, zero_division=0)),
         "roc_auc": float(roc_auc_score(y, probability)) if len(np.unique(y)) > 1 else None,
         "confusion_matrix": confusion_matrix(y, predicted, labels=[0, 1]).tolist(),
-        "samples": int(len(y)),
+        "samples": len(y),
     }
 
 
@@ -240,7 +244,7 @@ def cluster_summary(profile: pd.DataFrame, x: np.ndarray, labels: np.ndarray) ->
         preferences = {key.removeprefix("preference:"): round(float(group[key].mean() - profile[key].mean()), 3)
                        for key in profile if key.startswith("preference:")}
         top = sorted(preferences.items(), key=lambda pair: pair[1], reverse=True)[:3]
-        result.append({"cluster": int(cluster), "users": int(len(group)),
+        result.append({"cluster": int(cluster), "users": len(group),
                        "mean_rating": round(float(group.overall_mean.mean()), 3),
                        "median_rating_count": int(group.rating_count.median()),
                        "preferred_genres": top,
@@ -322,7 +326,7 @@ def train_segments(train: pd.DataFrame, movies: pd.DataFrame, output: Path, comp
 
 def run_experiment(components: int = 2, cluster_k: int | None = None) -> dict:
     report = source_report()
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + os.urandom(4).hex()
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + os.urandom(4).hex()
     output = RUNTIME / "experiments" / run_id
     output.mkdir(parents=True, exist_ok=False)
     (output / "status.json").write_text(json.dumps({"status": "running", "stage": "读取清洗数据"}), encoding="utf-8")
@@ -340,7 +344,7 @@ def run_experiment(components: int = 2, cluster_k: int | None = None) -> dict:
                     "command": f"python3 /app/ml_experiment.py train --components {components}" +
                                (f" --clusters {cluster_k}" if cluster_k is not None else ""),
                     "classifiers": classifiers, "analysis": segments,
-                    "algorithm_note": "课程分类、聚类、降维 PPT 与作业四材料未在仓库找到；分类按任务指定算法，聚类与降维采用常见课程算法，需与课程材料最终核对。"}
+                    "algorithm_note": "逻辑回归与决策树对应分类课件；K-Means 与 Ward 层次聚类对应作业五介绍的课程算法；PCA 与截断 SVD 对应作业六的指定对照方案。选型依据见 docs/迭代二实验报告.md。"}
         (output / "report.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
         (output / "status.json").write_text(json.dumps({"status": "completed", "stage": "全部实验完成"}), encoding="utf-8")
         (RUNTIME / "latest_experiment.json").write_text(json.dumps({"experiment_id": run_id, "report": str(output / "report.json")}, ensure_ascii=False), encoding="utf-8")

@@ -1,18 +1,33 @@
-"""Independent, read-only interfaces to trained iteration-two algorithms."""
+"""Saved-model interfaces and validated MovieLens tool definitions."""
 from __future__ import annotations
 
 import json
 from functools import lru_cache
+from itertools import islice
 from pathlib import Path
+from typing import Literal
 
 import joblib
 import pandas as pd
-
-from ml_experiment import RUNTIME, feature_frame, read_clean, source_report
+from jsonschema import Draft202012Validator, ValidationError
+from ml_experiment import (
+    RUNTIME,
+    artifact_path,
+    feature_frame,
+    read_clean,
+    source_report,
+)
+from pipeline import run_pipeline
 
 
 class ToolError(ValueError):
     pass
+
+
+def result_context(manifest: dict) -> dict:
+    return {"experiment_id": manifest["experiment_id"], "data_version": manifest["cleaned_data_version"],
+            "rule_version": manifest["rule_version"], "boundaries": manifest["boundaries"],
+            "split_counts": manifest["classifiers"]["split_counts"]}
 
 
 def experiment() -> tuple[dict, Path]:
@@ -80,6 +95,7 @@ def _classify(algorithm: str, user_id: int, movie_id: int) -> dict:
             "movie_title": str(movie.iloc[0].title), "genres": str(movie.iloc[0].genres),
             "positive_probability": probability, "predicted_high_rating": probability >= details["threshold"],
             "threshold": details["threshold"], "parameter": details["parameter"],
+            "estimator_params": details["estimator_params"],
             "test_metrics": details["test"], "validation_metrics": details["validation"],
             "feature_columns": manifest["classifiers"]["feature_columns"],
             "user_train_ratings": int(user_stats.loc[user_stats.UserID == user_id, "user_count"].sum()),
@@ -90,7 +106,7 @@ def _classify(algorithm: str, user_id: int, movie_id: int) -> dict:
                 int(movie_stats.loc[movie_stats.MovieID == movie_id, "movie_count"].sum()) < 5) else None,
             "history_policy": manifest["classifiers"]["history_policy"],
             "limitation": "本次是基于 T1 历史快照的情景预测；训练期内出现过的目标组合已从聚合特征扣除，但仍不能当作样本外准确率。测试集指标才是独立时间段评价。",
-            "experiment_id": manifest["experiment_id"], "data_version": manifest["cleaned_data_version"]}
+            **result_context(manifest)}
 
 
 def logistic_regression(user_id: int, movie_id: int) -> dict:
@@ -114,9 +130,9 @@ def _cluster(algorithm: str, user_id: int | None = None, n_clusters: int | None 
               "silhouette": details["silhouette"], "candidate_silhouettes": details["candidate_silhouettes"],
               "seconds": details["seconds"], "groups": details["groups"],
               "estimator_params": details["estimator_params"],
-              "users": len(assignments), "experiment_id": manifest["experiment_id"],
-              "data_version": manifest["cleaned_data_version"], "profile_policy": manifest["analysis"]["profile_policy"]}
-    profiles = None
+              "users": len(assignments), **result_context(manifest),
+              "profile_policy": manifest["analysis"]["profile_policy"]}
+    profiles = pd.read_csv(directory / "user_profiles.csv")
     if user_id is not None:
         if not isinstance(user_id, int) or user_id <= 0:
             raise ToolError("UserID 必须为正整数。")
@@ -125,7 +141,6 @@ def _cluster(algorithm: str, user_id: int | None = None, n_clusters: int | None 
             raise ToolError(f"UserID {user_id} 不在训练期画像中；无法直接推断新用户的群体。")
         result["UserID"] = user_id
         result["cluster"] = int(selected.iloc[0].cluster)
-        profiles = pd.read_csv(directory / "user_profiles.csv", usecols=["UserID", "rating_count"])
         rating_count = int(profiles.loc[profiles.UserID == user_id, "rating_count"].iloc[0])
         result["rating_count"] = rating_count
         if rating_count < 5:
@@ -137,14 +152,17 @@ def _cluster(algorithm: str, user_id: int | None = None, n_clusters: int | None 
         missing = sorted(set(user_ids) - set(selected.UserID))
         if missing:
             raise ToolError(f"以下 UserID 不在训练期画像中：{missing}。")
-        if profiles is None:
-            profiles = pd.read_csv(directory / "user_profiles.csv", usecols=["UserID", "rating_count"])
-        result["selected_users"] = selected.merge(profiles, on="UserID").to_dict(orient="records")
+        result["selected_users"] = selected.merge(profiles[["UserID", "rating_count"]], on="UserID").to_dict(orient="records")
         low_history = result["selected_users"]
         low_history = [row["UserID"] for row in low_history if row["rating_count"] < 5]
         if low_history:
             result["history_warning"] = f"训练期评分少于 5 条的用户：{low_history}；这些群体解释依据较少。"
         result["subset_note"] = "返回指定用户在全体训练期模型中的已有群体归属，不对该子集重新聚类。"
+    profile_rows = profiles
+    selected_ids = user_ids if user_ids is not None else [user_id] if user_id is not None else None
+    if selected_ids is not None:
+        profile_rows = profile_rows[profile_rows.UserID.isin(selected_ids)]
+    result["profiles_sample"] = profile_rows.head(5).to_dict(orient="records")
     return result
 
 
@@ -192,6 +210,14 @@ def _projection(algorithm: str, components: int | None = None, user_ids: list[in
     sample = coords.head(1000)
     if selected_users:
         sample = pd.concat([sample, coords[coords.UserID.isin(user_ids)]]).drop_duplicates("UserID")
+    model = joblib.load(directory / f"{algorithm}.joblib")
+    features = manifest["analysis"]["profile_features"]
+    directions = []
+    for index, weights in enumerate(model.components_):
+        strongest = sorted(zip(features, weights), key=lambda pair: abs(pair[1]), reverse=True)[:5]
+        directions.append({"component": index + 1,
+                           "explained_variance_ratio": float(model.explained_variance_ratio_[index]),
+                           "top_features": [{"feature": feature, "weight": float(weight)} for feature, weight in strongest]})
     result = {"status": "completed", "tool": algorithm, "original_dimensions": manifest["analysis"]["original_dimensions"],
               "components": details["components"], "explained_variance_ratio_sum": details["explained_variance_ratio_sum"],
               "reconstruction_mse": details["reconstruction_mse"], "transform_seconds": details["transform_seconds"],
@@ -203,7 +229,9 @@ def _projection(algorithm: str, components: int | None = None, user_ids: list[in
               "coordinates_sample": sample.to_dict(orient="records"),
               "coordinates_file": str(directory / details["coordinates_file"]),
               "resource_note": manifest["analysis"]["resource_note"],
-              "experiment_id": manifest["experiment_id"], "data_version": manifest["cleaned_data_version"]}
+              "component_directions": directions,
+              "direction_note": "权重对应标准化后的画像特征，绝对值越大，对该分量的贡献越大；正负表示方向，整轴符号翻转不改变几何关系。",
+              **result_context(manifest)}
     if selected_users is not None:
         result["selected_users"] = selected_users
         result["subset_note"] = "坐标来自全体训练期模型；聚类对照指标仍基于全体训练期用户，不对所选用户重新拟合。"
@@ -250,3 +278,107 @@ def list_experiments() -> list[dict]:
         except (ValueError, KeyError, OSError):
             continue
     return history
+
+
+Task = Literal["classification", "clustering", "reduction", "quality", "history", "mixed", "conversation"]
+TOOL_TASKS: dict[str, Task] = {
+    "logistic_regression": "classification", "decision_tree": "classification",
+    "kmeans": "clustering", "agglomerative": "clustering",
+    "pca": "reduction", "truncated_svd": "reduction",
+    "quality_report": "quality", "hadoop_streaming": "quality", "experiment_history": "history",
+}
+USER_ID = {"type": "integer", "minimum": 1, "description": "MovieLens 用户编号。"}
+USER_IDS = {"type": "array", "items": USER_ID, "minItems": 1, "uniqueItems": True,
+            "description": "查询这些用户在已保存模型中的结果。"}
+CLUSTERS = {"type": "integer", "minimum": 2, "maximum": 12,
+            "description": "要求的群体数量；与已保存实验不一致时返回错误。省略则使用已保存值。"}
+CLASSIFICATION_SCHEMA = {
+    "type": "object", "properties": {
+        "mode": {"type": "string", "enum": ["predict", "metrics"],
+                 "description": "predict 预测指定用户和电影；metrics 只读取模型评价指标。"},
+        "user_id": USER_ID,
+        "movie_id": {"type": "integer", "minimum": 1, "description": "MovieLens 电影编号。"},
+    }, "required": ["mode"], "additionalProperties": False,
+    "if": {"properties": {"mode": {"const": "predict"}}},
+    "then": {"required": ["user_id", "movie_id"]},
+    "else": {"not": {"anyOf": [{"required": ["user_id"]}, {"required": ["movie_id"]}]}},
+}
+CLUSTERING_SCHEMA = {
+    "type": "object", "properties": {"user_id": USER_ID, "user_ids": USER_IDS, "n_clusters": CLUSTERS},
+    "additionalProperties": False, "not": {"required": ["user_id", "user_ids"]},
+}
+REDUCTION_SCHEMA = {
+    "type": "object", "properties": {
+        "components": {"type": "integer", "minimum": 2,
+                       "description": "要求的目标维数。省略则读取已保存维数；本工具不会重新训练。"},
+        "user_ids": USER_IDS,
+        "retention_threshold": {"type": "number", "minimum": 0, "maximum": 1,
+                                "description": "核对现有解释方差比例是否达标，例如 20% 填 0.2。"},
+        "comparison_tools": {"type": "array", "minItems": 1, "uniqueItems": True,
+                             "items": {"type": "string", "enum": ["kmeans", "agglomerative"]},
+                             "description": "降维前后对照的聚类算法；省略时使用两种。"},
+        "n_clusters": CLUSTERS,
+    }, "additionalProperties": False,
+}
+
+
+def _definition(name: str, description: str, parameters: dict) -> dict:
+    return {"type": "function", "function": {"name": name, "description": description, "parameters": parameters}}
+
+
+TOOL_DEFINITIONS = [
+    _definition("logistic_regression", "用已训练的逻辑回归预测评分是否至少为 4 分，或读取验证/测试指标。预测必须有用户和电影编号。", CLASSIFICATION_SCHEMA),
+    _definition("decision_tree", "用已训练的决策树预测评分是否至少为 4 分，或读取验证/测试指标。预测必须有用户和电影编号。", CLASSIFICATION_SCHEMA),
+    _definition("kmeans", "读取 K-Means 用户群体、偏好摘要及轮廓系数。可查询一个用户或用户集合；不重新聚类。", CLUSTERING_SCHEMA),
+    _definition("agglomerative", "读取 Ward 层次聚类用户群体、偏好摘要及轮廓系数。可查询一个用户或用户集合；不推断新用户。", CLUSTERING_SCHEMA),
+    _definition("pca", "读取 PCA 坐标、解释方差、重构误差、资源开销与降维前后聚类对照，可核对信息保留阈值。", REDUCTION_SCHEMA),
+    _definition("truncated_svd", "读取 Truncated SVD 坐标、解释方差、重构误差、资源开销与降维前后聚类对照，可核对信息保留阈值。", REDUCTION_SCHEMA),
+    _definition("quality_report", "读取已有 Hadoop 清洗质量报告。查询质量、清洗结果或解释报告时使用。", {"type": "object", "properties": {}, "additionalProperties": False}),
+    _definition("experiment_history", "读取已登记的实验版本、参数与指标摘要。", {"type": "object", "properties": {}, "additionalProperties": False}),
+    _definition("hadoop_streaming", "执行 Hadoop 清洗并更新当前数据版本。仅在用户明确要求执行清洗时使用；查询报告用 quality_report。仅支持默认规则。", {
+        "type": "object", "properties": {"rule_version": {"type": "string", "enum": ["default-v1"]}},
+        "required": ["rule_version"], "additionalProperties": False,
+    }),
+]
+TOOL_VALIDATORS = {item["function"]["name"]: Draft202012Validator(item["function"]["parameters"])
+                   for item in TOOL_DEFINITIONS}
+
+
+def execute_tool(name: str, arguments: dict) -> dict:
+    """Validate model arguments before invoking an explicitly registered function."""
+    if name not in TOOL_VALIDATORS:
+        raise ToolError(f"未登记工具：{name}。")
+    try:
+        TOOL_VALIDATORS[name].validate(arguments)
+        json.dumps(arguments, allow_nan=False)
+    except ValidationError as exc:
+        field = ".".join(str(part) for part in exc.absolute_path) or "参数"
+        raise ToolError(f"{name} 的 {field} 无效：{exc.message}") from exc
+    if name in ("logistic_regression", "decision_tree"):
+        if arguments["mode"] == "metrics":
+            manifest, _ = experiment()
+            result = {**manifest["classifiers"]["models"][name],
+                      "feature_columns": manifest["classifiers"]["feature_columns"],
+                      **result_context(manifest)}
+        else:
+            result = TOOLS[name](arguments["user_id"], arguments["movie_id"])
+    elif name in TOOLS:
+        result = TOOLS[name](**arguments)
+        if TOOL_TASKS[name] == "reduction":
+            result["coordinate_label_policy"] = "坐标表的 kmeans/agglomerative 标签来自原始画像空间。降维空间仅提供整体聚类对照指标，未返回逐用户标签。"
+            result["variance_policy"] = "explained_variance_ratio_sum 是保留的方差比例；原空间与降维空间的轮廓系数分别按各自距离计算。"
+    elif name == "quality_report":
+        result = source_report()
+    elif name == "experiment_history":
+        result = {"experiments": list_experiments()}
+    else:
+        result = run_pipeline(f"使用 {arguments['rule_version']} 默认规则清洗 MovieLens 1M 并评估五维质量")
+    if TOOL_TASKS[name] == "quality" and result.get("status") == "completed":
+        samples = {}
+        for table, details in result["cleaning"].items():
+            with artifact_path(details["clean_file"]).open(encoding="utf-8") as stream:
+                samples[table] = [line.rstrip("\n") for line in islice(stream, 5)]
+        result = {**result, "clean_samples": samples}
+    if result.get("cleaned_data_version"):
+        result = {**result, "data_version": result["cleaned_data_version"]}
+    return {"status": "completed", **result, "tool": name, "task": TOOL_TASKS[name]}
