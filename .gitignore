@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+/runtime/
+/ml-1m/
+/dist/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+.idea/
+.vscode/
+*Zone.Identifier

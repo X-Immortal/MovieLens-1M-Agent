@@ -1,0 +1,19 @@
+services:
+  movielens-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: movielens-agent
+    env_file:
+      - .env
+    environment:
+      DATA_DIR: /data/ml-1m
+      RUNTIME_DIR: /runtime
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./ml-1m:/data/ml-1m:ro
+      - ./app:/app:ro
+      - ./runtime:/runtime
+    command: ["bash", "/app/container_entrypoint.sh"]
