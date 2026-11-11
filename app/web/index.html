@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MovieLens Agent · 数据分析工作台</title>
+  <link rel="stylesheet" href="/styles.css?v=2">
+  <script src="/app.js?v=2" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="rail" aria-label="会话导航">
+      <div class="brand"><span class="brand-symbol">M</span><span>MovieLens <strong>Agent</strong></span></div>
+      <div class="brand-caption">大数据分析工作台</div>
+      <button id="new-session" class="new-session" type="button"><span>＋</span> 新建对话</button>
+      <div class="rail-heading">历史对话 <span id="session-count"></span></div>
+      <div id="session-list" class="session-list"></div>
+      <div class="rail-bottom"><span class="small-mark"></span><span>MovieLens 1M<br><small>Hadoop · 六种分析工具</small></span></div>
+    </aside>
+
+    <main class="main-panel">
+      <header class="topbar">
+        <div><div class="topbar-kicker">分析对话</div><h1 id="conversation-title">新对话</h1></div>
+        <div id="model-status" class="status-pill">正在读取模型状态</div>
+      </header>
+      <div id="conversation" class="conversation" aria-live="polite"></div>
+      <div class="composer-wrap">
+        <form id="composer" class="composer">
+          <label for="prompt" class="sr-only">输入分析问题</label>
+          <textarea id="prompt" rows="2" placeholder="询问数据质量、分类预测、用户分群或降维结果…"></textarea>
+          <div class="composer-footer"><span>Enter 发送 · Shift + Enter 换行</span><button id="send" type="submit">发送 <span aria-hidden="true">↗</span></button></div>
+        </form>
+      </div>
+    </main>
+
+    <aside class="inspector" aria-label="分析资料">
+      <div class="inspector-header"><span>分析资料</span><span class="inspector-dot"></span></div>
+      <section class="inspector-section">
+        <h2>当前数据</h2>
+        <div id="data-status" class="data-status"></div>
+      </section>
+      <section class="inspector-section">
+        <h2>文件与报告</h2>
+        <div id="artifact-list" class="artifact-list"></div>
+      </section>
+      <section class="inspector-section">
+        <h2>实验操作</h2>
+        <p class="side-copy">清洗数据变更后，重新训练分类、聚类和降维模型。</p>
+        <button id="train" class="secondary-button" type="button">训练新实验</button>
+        <div id="train-status" class="side-message" role="status"></div>
+      </section>
+      <div class="inspector-note">数据与图表来自已登记的 Hadoop 报告和模型实验。</div>
+    </aside>
+  </div>
+  <div id="toast" class="toast" role="alert" hidden></div>
+</body>
+</html>

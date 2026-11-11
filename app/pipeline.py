@@ -78,7 +78,6 @@ def _run(cmd: list[str], log_file: Path) -> None:
                 "error": tail, "execution": {"task_dir": str(task_dir), "logs": str(log_file.parent)},
             }
             (task_dir / "report.json").write_text(json.dumps(failure_report, ensure_ascii=False, indent=2), encoding="utf-8")
-            (RUNTIME_DIR / "latest_report.json").write_text(json.dumps(failure_report, ensure_ascii=False, indent=2), encoding="utf-8")
             raise PipelineError(f"Hadoop 命令失败（退出码 {process.returncode}）：\n{tail}", failure_report)
         raise PipelineError(f"Hadoop 命令失败（退出码 {process.returncode}）：\n{tail}")
 
@@ -222,6 +221,8 @@ def _fixed_boundaries() -> dict:
 def _request_config(request: str) -> tuple[str, bool, str]:
     text = (request or "").strip()
     lowered = text.lower()
+    if any(word in lowered for word in ("自定义", "非默认", "custom", "rule=")):
+        return "", False, "未登记该自定义清洗规则；当前仅支持 default-v1（默认规则）"
     supported = (not text or "默认" in text or "default-v1" in lowered or "default" in lowered)
     if supported:
         return RULE_VERSION, True, "已匹配已登记的 default-v1 规则配置"
@@ -248,7 +249,6 @@ def run_pipeline(request: str = "请使用默认规则清洗 MovieLens 1M，并�
             "execution": {"task_dir": str(task_dir)},
         }
         (task_dir / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-        (RUNTIME_DIR / "latest_report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         _write_status(status_path, "failed", task_id=task_id, error=resolution, failure_code="unsupported_rule")
         ACTIVE_STATUS_PATH = None
         return report
@@ -260,10 +260,12 @@ def run_pipeline(request: str = "请使用默认规则清洗 MovieLens 1M，并�
         path.mkdir(parents=True, exist_ok=True)
 
     raw_users, raw_movies = TABLE_FILES["users"], TABLE_FILES["movies"]
+    _write_status(status_path, "running", task_id=task_id, stage="Hadoop 正在评价原始数据")
     before = {
         table: _quality_job(table, TABLE_FILES[table], before_dir / table, raw_users, raw_movies, log_dir)
         for table in TABLES
     }
+    _write_status(status_path, "running", task_id=task_id, stage="Hadoop 正在清洗用户、电影和评分")
     users_clean = _clean_job("users", TABLE_FILES["users"], clean_dir / "users_job", None, None, log_dir)
     movies_clean = _clean_job("movies", TABLE_FILES["movies"], clean_dir / "movies_job", None, None, log_dir)
     ratings_clean = _clean_job(
@@ -273,6 +275,7 @@ def run_pipeline(request: str = "请使用默认规则清洗 MovieLens 1M，并�
     cleaned_files = {table: Path(item["clean_file"]) for table, item in {
         "users": users_clean, "movies": movies_clean, "ratings": ratings_clean,
     }.items()}
+    _write_status(status_path, "running", task_id=task_id, stage="Hadoop 正在评价清洗后数据")
     after = {
         table: _quality_job(
             table, cleaned_files[table], after_dir / table,
@@ -280,6 +283,7 @@ def run_pipeline(request: str = "请使用默认规则清洗 MovieLens 1M，并�
         ) for table in TABLES
     }
     cleaning = {"users": users_clean, "movies": movies_clean, "ratings": ratings_clean}
+    _write_status(status_path, "running", task_id=task_id, stage="Hadoop 正在汇总五维质量评分")
     score = _score_hadoop(before, after, task_dir, log_dir)
     report = {
         "status": "completed",

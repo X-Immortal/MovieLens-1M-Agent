@@ -9,5 +9,5 @@ if [[ ! -e .env ]]; then
 fi
 docker compose build
 docker compose up -d
-echo "Streamlit: http://localhost:8501"
+echo "MovieLens Agent: http://localhost:8501"
 echo "Logs:      docker compose logs -f movielens-agent"

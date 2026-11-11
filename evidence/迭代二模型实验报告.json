@@ -1,0 +1,547 @@
+{
+  "status": "completed",
+  "experiment_id": "20261020T153549Z-d88b3980",
+  "source_task_id": "20260930T142636Z-939659b5",
+  "cleaned_data_version": "ml-1m-clean-v1-20260930T142636Z-939659b5",
+  "rule_version": "default-v1",
+  "boundaries": {
+    "T1": "2002-08-04T23:40:58Z",
+    "T2": "2002-11-16T20:45:24Z",
+    "T1_epoch": 1028504458,
+    "T2_epoch": 1037479524,
+    "basis": "Iteration 1 注册的固定时间边界；后续迭代必须复用"
+  },
+  "seed": 20261020,
+  "components": 2,
+  "requested_clusters": null,
+  "command": "python3 /app/ml_experiment.py train --components 2",
+  "classifiers": {
+    "models": {
+      "logistic_regression": {
+        "parameter": "C=0.1",
+        "threshold": 0.5,
+        "estimator_params": {
+          "C": 0.1,
+          "class_weight": null,
+          "dual": false,
+          "fit_intercept": true,
+          "intercept_scaling": 1,
+          "l1_ratio": null,
+          "max_iter": 150,
+          "multi_class": "deprecated",
+          "n_jobs": null,
+          "penalty": "l2",
+          "random_state": 20261020,
+          "solver": "liblinear",
+          "tol": 0.0001,
+          "verbose": 0,
+          "warm_start": false
+        },
+        "validation": {
+          "precision": 0.6598557692307693,
+          "recall": 0.8172683289914403,
+          "f1": 0.7301745635910224,
+          "roc_auc": 0.7793439117637109,
+          "confusion_matrix": [
+            [
+              1618,
+              1132
+            ],
+            [
+              491,
+              2196
+            ]
+          ],
+          "samples": 5437
+        },
+        "test": {
+          "precision": 0.7013791162397973,
+          "recall": 0.8359610868835962,
+          "f1": 0.7627793082338536,
+          "roc_auc": 0.7746096735827395,
+          "confusion_matrix": [
+            [
+              1326,
+              1061
+            ],
+            [
+              489,
+              2492
+            ]
+          ],
+          "samples": 5368
+        },
+        "model_file": "logistic_regression.joblib"
+      },
+      "decision_tree": {
+        "parameter": "max_depth=8",
+        "threshold": 0.5,
+        "estimator_params": {
+          "ccp_alpha": 0.0,
+          "class_weight": null,
+          "criterion": "gini",
+          "max_depth": 8,
+          "max_features": null,
+          "max_leaf_nodes": null,
+          "min_impurity_decrease": 0.0,
+          "min_samples_leaf": 80,
+          "min_samples_split": 2,
+          "min_weight_fraction_leaf": 0.0,
+          "monotonic_cst": null,
+          "random_state": 20261020,
+          "splitter": "best"
+        },
+        "validation": {
+          "precision": 0.6610569825804546,
+          "recall": 0.8332713062895423,
+          "f1": 0.7372406980572934,
+          "roc_auc": 0.7864088371620935,
+          "confusion_matrix": [
+            [
+              1602,
+              1148
+            ],
+            [
+              448,
+              2239
+            ]
+          ],
+          "samples": 5437
+        },
+        "test": {
+          "precision": 0.7016958576591604,
+          "recall": 0.8466957396846696,
+          "f1": 0.7674065065369413,
+          "roc_auc": 0.7757978297686774,
+          "confusion_matrix": [
+            [
+              1314,
+              1073
+            ],
+            [
+              457,
+              2524
+            ]
+          ],
+          "samples": 5368
+        },
+        "model_file": "decision_tree.joblib"
+      }
+    },
+    "feature_columns": [
+      "release_year",
+      "user_count",
+      "user_mean",
+      "movie_count",
+      "movie_mean",
+      "gender",
+      "age",
+      "occupation",
+      "genre:Action",
+      "genre:Adventure",
+      "genre:Animation",
+      "genre:Children's",
+      "genre:Comedy",
+      "genre:Crime",
+      "genre:Documentary",
+      "genre:Drama",
+      "genre:Fantasy",
+      "genre:Film-Noir",
+      "genre:Horror",
+      "genre:Musical",
+      "genre:Mystery",
+      "genre:Romance",
+      "genre:Sci-Fi",
+      "genre:Thriller",
+      "genre:War",
+      "genre:Western"
+    ],
+    "history_policy": "训练事件只用严格早于事件时间戳的评分，同秒事件一起排除。验证与测试使用 T1 训练期快照；交互预测若目标组合曾在训练期评分，先从 T1 聚合快照中扣除该组合全部评分。",
+    "split_counts": {
+      "train": 989404,
+      "validation": 5437,
+      "test": 5368
+    },
+    "seconds": 24.213
+  },
+  "analysis": {
+    "users": 6039,
+    "original_dimensions": 38,
+    "profile_features": [
+      "overall_mean",
+      "log_rating_count",
+      "preference:Action",
+      "frequency:Action",
+      "preference:Adventure",
+      "frequency:Adventure",
+      "preference:Animation",
+      "frequency:Animation",
+      "preference:Children's",
+      "frequency:Children's",
+      "preference:Comedy",
+      "frequency:Comedy",
+      "preference:Crime",
+      "frequency:Crime",
+      "preference:Documentary",
+      "frequency:Documentary",
+      "preference:Drama",
+      "frequency:Drama",
+      "preference:Fantasy",
+      "frequency:Fantasy",
+      "preference:Film-Noir",
+      "frequency:Film-Noir",
+      "preference:Horror",
+      "frequency:Horror",
+      "preference:Musical",
+      "frequency:Musical",
+      "preference:Mystery",
+      "frequency:Mystery",
+      "preference:Romance",
+      "frequency:Romance",
+      "preference:Sci-Fi",
+      "frequency:Sci-Fi",
+      "preference:Thriller",
+      "frequency:Thriller",
+      "preference:War",
+      "frequency:War",
+      "preference:Western",
+      "frequency:Western"
+    ],
+    "profile_policy": "仅使用 T1 前评分；未看过的类型偏好记为相对个人平均分的中性偏差 0，频率为 0；偏差使用 5 条平滑。",
+    "clusters": {
+      "kmeans": {
+        "n_clusters": 4,
+        "silhouette": 0.06445,
+        "estimator_params": {
+          "algorithm": "lloyd",
+          "copy_x": true,
+          "init": "k-means++",
+          "max_iter": 300,
+          "n_clusters": 4,
+          "n_init": 10,
+          "random_state": 20261020,
+          "tol": 0.0001,
+          "verbose": 0
+        },
+        "candidate_silhouettes": {
+          "4": 0.06445,
+          "6": 0.0501,
+          "8": 0.05806
+        },
+        "seconds": 0.451,
+        "groups": [
+          {
+            "cluster": 0,
+            "users": 318,
+            "mean_rating": 3.717,
+            "median_rating_count": 95,
+            "preferred_genres": [
+              [
+                "Sci-Fi",
+                0.057
+              ],
+              [
+                "Romance",
+                0.054
+              ],
+              [
+                "Comedy",
+                0.046
+              ]
+            ],
+            "representative_user_ids": [
+              1344,
+              2350,
+              926
+            ],
+            "explanation": "Sci-Fi、Romance、Comedy"
+          },
+          {
+            "cluster": 1,
+            "users": 1602,
+            "mean_rating": 3.675,
+            "median_rating_count": 85,
+            "preferred_genres": [
+              [
+                "Action",
+                0.116
+              ],
+              [
+                "Sci-Fi",
+                0.093
+              ],
+              [
+                "Adventure",
+                0.092
+              ]
+            ],
+            "representative_user_ids": [
+              5386,
+              4901,
+              2969
+            ],
+            "explanation": "Action、Sci-Fi、Adventure"
+          },
+          {
+            "cluster": 2,
+            "users": 1589,
+            "mean_rating": 3.594,
+            "median_rating_count": 220,
+            "preferred_genres": [
+              [
+                "Film-Noir",
+                0.168
+              ],
+              [
+                "Crime",
+                0.104
+              ],
+              [
+                "Mystery",
+                0.099
+              ]
+            ],
+            "representative_user_ids": [
+              261,
+              2743,
+              3868
+            ],
+            "explanation": "Film-Noir、Crime、Mystery"
+          },
+          {
+            "cluster": 3,
+            "users": 2530,
+            "mean_rating": 3.775,
+            "median_rating_count": 65,
+            "preferred_genres": [
+              [
+                "Children's",
+                0.077
+              ],
+              [
+                "Adventure",
+                0.042
+              ],
+              [
+                "Fantasy",
+                0.042
+              ]
+            ],
+            "representative_user_ids": [
+              5898,
+              5304,
+              2084
+            ],
+            "explanation": "Children's、Adventure、Fantasy"
+          }
+        ],
+        "assignments_file": "kmeans_assignments.csv",
+        "new_user_policy": "仅登记训练期已有用户；层次聚类不支持直接预测新用户。"
+      },
+      "agglomerative": {
+        "n_clusters": 4,
+        "silhouette": 0.06337,
+        "estimator_params": {
+          "compute_distances": false,
+          "compute_full_tree": "auto",
+          "connectivity": null,
+          "distance_threshold": null,
+          "linkage": "ward",
+          "memory": null,
+          "metric": "euclidean",
+          "n_clusters": 4
+        },
+        "candidate_silhouettes": {
+          "4": 0.06337,
+          "6": 0.04383,
+          "8": 0.03563
+        },
+        "seconds": 0.912,
+        "groups": [
+          {
+            "cluster": 0,
+            "users": 3413,
+            "mean_rating": 3.723,
+            "median_rating_count": 103,
+            "preferred_genres": [
+              [
+                "Mystery",
+                0.025
+              ],
+              [
+                "Film-Noir",
+                0.024
+              ],
+              [
+                "Crime",
+                0.023
+              ]
+            ],
+            "representative_user_ids": [
+              2084,
+              415,
+              4466
+            ],
+            "explanation": "Mystery、Film-Noir、Crime"
+          },
+          {
+            "cluster": 1,
+            "users": 2118,
+            "mean_rating": 3.642,
+            "median_rating_count": 90,
+            "preferred_genres": [
+              [
+                "Action",
+                0.088
+              ],
+              [
+                "Adventure",
+                0.078
+              ],
+              [
+                "Sci-Fi",
+                0.067
+              ]
+            ],
+            "representative_user_ids": [
+              4901,
+              2865,
+              5386
+            ],
+            "explanation": "Action、Adventure、Sci-Fi"
+          },
+          {
+            "cluster": 2,
+            "users": 312,
+            "mean_rating": 3.764,
+            "median_rating_count": 77,
+            "preferred_genres": [
+              [
+                "Musical",
+                0.077
+              ],
+              [
+                "Children's",
+                0.072
+              ],
+              [
+                "Horror",
+                0.07
+              ]
+            ],
+            "representative_user_ids": [
+              1344,
+              5644,
+              926
+            ],
+            "explanation": "Musical、Children's、Horror"
+          },
+          {
+            "cluster": 3,
+            "users": 196,
+            "mean_rating": 3.772,
+            "median_rating_count": 43,
+            "preferred_genres": [
+              [
+                "Film-Noir",
+                0.063
+              ],
+              [
+                "Thriller",
+                0.054
+              ],
+              [
+                "Crime",
+                0.05
+              ]
+            ],
+            "representative_user_ids": [
+              4760,
+              196,
+              1197
+            ],
+            "explanation": "Film-Noir、Thriller、Crime"
+          }
+        ],
+        "assignments_file": "agglomerative_assignments.csv",
+        "new_user_policy": "仅登记训练期已有用户；层次聚类不支持直接预测新用户。"
+      }
+    },
+    "projections": {
+      "pca": {
+        "components": 2,
+        "estimator_params": {
+          "copy": true,
+          "iterated_power": "auto",
+          "n_components": 2,
+          "n_oversamples": 10,
+          "power_iteration_normalizer": "auto",
+          "random_state": 20261020,
+          "svd_solver": "auto",
+          "tol": 0.0,
+          "whiten": false
+        },
+        "explained_variance_ratio_sum": 0.18677,
+        "reconstruction_mse": 0.81323,
+        "transform_seconds": 0.017,
+        "peak_rss_increment_kib": 0,
+        "input_matrix_bytes": 917928,
+        "coordinate_bytes": 48312,
+        "comparison": {
+          "kmeans": {
+            "original_silhouette": 0.06445,
+            "reduced_silhouette": 0.32606,
+            "original_cluster_seconds": 0.451,
+            "reduced_cluster_seconds": 0.394,
+            "comparison_note": "原始与降维后使用同一聚类算法、相同用户和群体数量；轮廓系数分别在各自特征空间计算。"
+          },
+          "agglomerative": {
+            "original_silhouette": 0.06337,
+            "reduced_silhouette": 0.29984,
+            "original_cluster_seconds": 0.912,
+            "reduced_cluster_seconds": 0.574,
+            "comparison_note": "原始与降维后使用同一聚类算法、相同用户和群体数量；轮廓系数分别在各自特征空间计算。"
+          }
+        },
+        "coordinates_file": "pca_coordinates.csv"
+      },
+      "truncated_svd": {
+        "components": 2,
+        "estimator_params": {
+          "algorithm": "randomized",
+          "n_components": 2,
+          "n_iter": 5,
+          "n_oversamples": 10,
+          "power_iteration_normalizer": "auto",
+          "random_state": 20261020,
+          "tol": 0.0
+        },
+        "explained_variance_ratio_sum": 0.18677,
+        "reconstruction_mse": 0.81323,
+        "transform_seconds": 0.011,
+        "peak_rss_increment_kib": 0,
+        "input_matrix_bytes": 917928,
+        "coordinate_bytes": 48312,
+        "comparison": {
+          "kmeans": {
+            "original_silhouette": 0.06445,
+            "reduced_silhouette": 0.32606,
+            "original_cluster_seconds": 0.451,
+            "reduced_cluster_seconds": 0.349,
+            "comparison_note": "原始与降维后使用同一聚类算法、相同用户和群体数量；轮廓系数分别在各自特征空间计算。"
+          },
+          "agglomerative": {
+            "original_silhouette": 0.06337,
+            "reduced_silhouette": 0.24695,
+            "original_cluster_seconds": 0.912,
+            "reduced_cluster_seconds": 0.502,
+            "comparison_note": "原始与降维后使用同一聚类算法、相同用户和群体数量；轮廓系数分别在各自特征空间计算。"
+          }
+        },
+        "coordinates_file": "truncated_svd_coordinates.csv"
+      }
+    },
+    "resource_note": "input_matrix_bytes 与 coordinate_bytes 仅衡量 NumPy 特征矩阵和坐标数组；peak_rss_increment_kib 为进程历史峰值增长，可能因前序步骤已分配内存而为 0，不代表降维无需内存。"
+  },
+  "algorithm_note": "课程分类、聚类、降维 PPT 与作业四材料未在仓库找到；分类按任务指定算法，聚类与降维采用常见课程算法，需与课程材料最终核对。"
+}

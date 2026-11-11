@@ -1,0 +1,349 @@
+{
+  "status": "completed",
+  "task_id": "20260930T142636Z-939659b5",
+  "request": "请使用默认规则清洗 MovieLens 1M，评估清洗前后的 Accurate、Complete、Unique、Up-to-date、Consistent，并说明仍存在的问题。",
+  "data_version": "ml-1m-local-raw-v1",
+  "cleaned_data_version": "ml-1m-clean-v1-20260930T142636Z-939659b5",
+  "rule_version": "default-v1",
+  "scoring_rule_fingerprint": "51ff7eddb88e6ae25d96bea86133eaffbc1655fb98eed903dd39872fe3325a19",
+  "rule_resolution": "已匹配已登记的 default-v1 规则配置",
+  "boundaries": {
+    "T1": "2002-08-04T23:40:58Z",
+    "T2": "2002-11-16T20:45:24Z",
+    "T1_epoch": 1028504458,
+    "T2_epoch": 1037479524,
+    "basis": "Iteration 1 注册的固定时间边界；后续迭代必须复用"
+  },
+  "execution": {
+    "engine": "Hadoop Streaming",
+    "framework": "local",
+    "hadoop_streaming_jar": "/opt/hadoop-3.2.1/share/hadoop/tools/lib/hadoop-streaming-3.2.1.jar",
+    "task_dir": "/runtime/runs/20260930T142636Z-939659b5",
+    "logs": "/runtime/runs/20260930T142636Z-939659b5/logs"
+  },
+  "quality": {
+    "before": {
+      "Accurate": 91.94,
+      "Complete": 97.65,
+      "Unique": 89.48,
+      "Up-to-date": 93.35,
+      "Consistent": 90.12
+    },
+    "after": {
+      "Accurate": 100.0,
+      "Complete": 100.0,
+      "Unique": 100.0,
+      "Up-to-date": 100.0,
+      "Consistent": 100.0
+    },
+    "delta": {
+      "Accurate": 8.06,
+      "Complete": 2.35,
+      "Unique": 10.52,
+      "Up-to-date": 6.65,
+      "Consistent": 9.88
+    },
+    "method": {
+      "Accurate": "语义约束满足率；评分为 1-5、ID 为正整数、时间戳在 MovieLens 历史窗口内。",
+      "Complete": "必需字段非空且字段数量正确的行比例。",
+      "Unique": "业务键去重后的行数 / 总行数；ratings 业务键为 user、movie、timestamp。",
+      "Up-to-date": "ratings 时间戳落在 2000-01-01 至 2004-11-09 历史窗口内的比例；T1/T2 仅用于区间计数。",
+      "Consistent": "解析、类别取值和 ratings 跨表引用均满足规则的行比例。",
+      "limitations": "格式和引用一致不代表用户自填属性现实真实；历史数据的时效性只能按固定窗口判断。"
+    },
+    "summaries": {
+      "before": {
+        "users": {
+          "table": "users",
+          "total": 6946,
+          "complete": 6747,
+          "accurate": 6447,
+          "consistent": 6447,
+          "up_to_date": 6747,
+          "valid": 6447,
+          "unknown_user": 0,
+          "unknown_movie": 0,
+          "train": 0,
+          "validation": 0,
+          "test": 0,
+          "invalid": 499,
+          "unique_records": 6112,
+          "duplicate_records": 680,
+          "unique_raw": 6828,
+          "duplicate_raw": 118,
+          "min_timestamp": null,
+          "max_timestamp": null
+        },
+        "movies": {
+          "table": "movies",
+          "total": 4465,
+          "complete": 4337,
+          "accurate": 4337,
+          "consistent": 4163,
+          "up_to_date": 4337,
+          "valid": 4163,
+          "unknown_user": 0,
+          "unknown_movie": 0,
+          "train": 0,
+          "validation": 0,
+          "test": 0,
+          "invalid": 302,
+          "unique_records": 3941,
+          "duplicate_records": 454,
+          "unique_raw": 4395,
+          "duplicate_raw": 70,
+          "min_timestamp": null,
+          "max_timestamp": null
+        },
+        "ratings": {
+          "table": "ratings",
+          "total": 1150241,
+          "complete": 1123235,
+          "accurate": 1057220,
+          "consistent": 1036216,
+          "up_to_date": 1073724,
+          "valid": 1036216,
+          "unknown_user": 10502,
+          "unknown_movie": 10502,
+          "train": 1062919,
+          "validation": 5437,
+          "test": 5368,
+          "invalid": 114025,
+          "unique_records": 1029405,
+          "duplicate_records": 69825,
+          "unique_raw": 1057984,
+          "duplicate_raw": 92257,
+          "min_timestamp": 956703932,
+          "max_timestamp": 1046454590
+        }
+      },
+      "after": {
+        "users": {
+          "table": "users",
+          "total": 6112,
+          "complete": 6112,
+          "accurate": 6112,
+          "consistent": 6112,
+          "up_to_date": 6112,
+          "valid": 6112,
+          "unknown_user": 0,
+          "unknown_movie": 0,
+          "train": 0,
+          "validation": 0,
+          "test": 0,
+          "invalid": 0,
+          "unique_records": 6112,
+          "duplicate_records": 0,
+          "unique_raw": 6112,
+          "duplicate_raw": 0,
+          "min_timestamp": null,
+          "max_timestamp": null
+        },
+        "movies": {
+          "table": "movies",
+          "total": 3941,
+          "complete": 3941,
+          "accurate": 3941,
+          "consistent": 3941,
+          "up_to_date": 3941,
+          "valid": 3941,
+          "unknown_user": 0,
+          "unknown_movie": 0,
+          "train": 0,
+          "validation": 0,
+          "test": 0,
+          "invalid": 0,
+          "unique_records": 3941,
+          "duplicate_records": 0,
+          "unique_raw": 3941,
+          "duplicate_raw": 0,
+          "min_timestamp": null,
+          "max_timestamp": null
+        },
+        "ratings": {
+          "table": "ratings",
+          "total": 1000209,
+          "complete": 1000209,
+          "accurate": 1000209,
+          "consistent": 1000209,
+          "up_to_date": 1000209,
+          "valid": 1000209,
+          "unknown_user": 0,
+          "unknown_movie": 0,
+          "train": 989404,
+          "validation": 5437,
+          "test": 5368,
+          "invalid": 0,
+          "unique_records": 1000209,
+          "duplicate_records": 0,
+          "unique_raw": 1000209,
+          "duplicate_raw": 0,
+          "min_timestamp": 956703932,
+          "max_timestamp": 1046454590
+        }
+      }
+    }
+  },
+  "cleaning": {
+    "users": {
+      "table": "users",
+      "cleaned": 6112,
+      "repaired": 0,
+      "rejected": 499,
+      "duplicates": 118,
+      "conflicts": 217,
+      "reject_reason_counts": {
+        "field_count_or_missing_value": 199,
+        "occupation_or_zip_invalid": 100,
+        "user_demographic_invalid": 200
+      },
+      "reject_examples": {
+        "field_count_or_missing_value": [
+          "3733::M::18::4::02777::EXTRA_FIELD",
+          "2054::::25::12::03110",
+          "1411:M:35:1:08107"
+        ],
+        "occupation_or_zip_invalid": [
+          "2445::M::25::99::48104",
+          "3836::F::50::99::84770",
+          "1508::F::1::99::94539"
+        ],
+        "user_demographic_invalid": [
+          "1510::F::30::1::48067",
+          "571::X::50::5::95401",
+          "3805::F::30::1::89031"
+        ]
+      },
+      "duplicate_examples": [
+        "1009::M::50::7::48315",
+        "1039::F::35::1::02346",
+        "1076::F::25::3::27606"
+      ],
+      "conflict_examples": [
+        "{\"reason\":\"conflicting_business_key\",\"raw\":\"1001::M::25::4::90210\",\"canonical\":\"1001::M::25::4::90210\"}",
+        "{\"reason\":\"conflicting_business_key\",\"raw\":\"1005::M::35::11::08003\",\"canonical\":\"1005::M::35::11::08003\"}",
+        "{\"reason\":\"conflicting_business_key\",\"raw\":\"1028::M::56::7::03848\",\"canonical\":\"1028::M::56::7::03848\"}"
+      ],
+      "clean_file": "/runtime/runs/20260930T142636Z-939659b5/clean/users.dat",
+      "reject_file": "/runtime/runs/20260930T142636Z-939659b5/clean/users.rejected.jsonl",
+      "conflict_file": "/runtime/runs/20260930T142636Z-939659b5/clean/users.conflicts.jsonl"
+    },
+    "movies": {
+      "table": "movies",
+      "cleaned": 3941,
+      "repaired": 25,
+      "rejected": 302,
+      "duplicates": 117,
+      "conflicts": 105,
+      "reject_reason_counts": {
+        "field_count_or_missing_value": 128,
+        "unknown_genre": 174
+      },
+      "reject_examples": {
+        "field_count_or_missing_value": [
+          "3212|Born to Win (1971)|Drama",
+          "243::Gordy (1995)",
+          "1909::::Mystery|Sci-Fi|Thriller"
+        ],
+        "unknown_genre": [
+          "278::Conflicting title for Miami Rhapsody (1995)::Drama|UnknownGenre",
+          "1907::Mulan (1998)::Animation|Children's|UnknownGenre",
+          "1955::Kramer Vs. Kramer (1979)::Drama|UnknownGenre"
+        ]
+      },
+      "duplicate_examples": [
+        "1044::Surviving Picasso (1996)::Drama",
+        "1063::Johns (1996)::Drama",
+        "109::Headless Body in Topless Bar (1995)::Comedy"
+      ],
+      "conflict_examples": [
+        "{\"reason\":\"conflicting_business_key\",\"raw\":\"1001::Léon / Amélie (1994)::Comedy\",\"canonical\":\"1001::Léon / Amélie (1994)::Comedy\"}",
+        "{\"reason\":\"conflicting_business_key\",\"raw\":\"1002::Movie with malformed year [20XX]::Comedy\",\"canonical\":\"1002::Movie with malformed year [20XX]::Comedy\"}",
+        "{\"reason\":\"conflicting_business_key\",\"raw\":\"1065::Léon / Amélie (1994)::Mystery\",\"canonical\":\"1065::Léon / Amélie (1994)::Mystery\"}"
+      ],
+      "clean_file": "/runtime/runs/20260930T142636Z-939659b5/clean/movies.dat",
+      "reject_file": "/runtime/runs/20260930T142636Z-939659b5/clean/movies.rejected.jsonl",
+      "conflict_file": "/runtime/runs/20260930T142636Z-939659b5/clean/movies.conflicts.jsonl"
+    },
+    "ratings": {
+      "table": "ratings",
+      "cleaned": 1000209,
+      "repaired": 0,
+      "rejected": 114025,
+      "duplicates": 17257,
+      "conflicts": 18750,
+      "reject_reason_counts": {
+        "field_count_or_missing_value": 27006,
+        "non_numeric_field": 24005,
+        "rating_out_of_range_or_id_invalid": 16504,
+        "timestamp_out_of_expected_range": 25506,
+        "unknown_movie": 10502,
+        "unknown_user": 10502
+      },
+      "reject_examples": {
+        "field_count_or_missing_value": [
+          "29::2527::5::",
+          "19,2096,3,978556036",
+          "3::648::3"
+        ],
+        "non_numeric_field": [
+          "5::1509::3.5::978244962",
+          "26::3100::3.5::978138682",
+          "22::608::3.5::978135545"
+        ],
+        "rating_out_of_range_or_id_invalid": [
+          "1::260::6::978300760",
+          "15::3646::6::978199149",
+          "29::589::0::978135871"
+        ],
+        "timestamp_out_of_expected_range": [
+          "29::1135::3::978122580000",
+          "17::913::5::978159013000",
+          "14::2920::5::4102444800"
+        ],
+        "unknown_movie": [
+          "26::1007700::1::978139220",
+          "10::1012196::4::978226349",
+          "12::1004654::5::978218949"
+        ],
+        "unknown_user": [
+          "1006173::1587::4::978154534",
+          "1013544::2858::5::982210072",
+          "1009756::1343::3::978198323"
+        ]
+      },
+      "duplicate_examples": [
+        "10::1009::5::979168267",
+        "10::1009::5::979168267",
+        "10::1009::5::979168267"
+      ],
+      "conflict_examples": [
+        "{\"reason\":\"conflicting_business_key\",\"raw\":\"10::1009::1::979168267\",\"canonical\":\"10::1009::1::979168267\"}",
+        "{\"reason\":\"conflicting_business_key\",\"raw\":\"10::1009::1::979168267\",\"canonical\":\"10::1009::1::979168267\"}",
+        "{\"reason\":\"conflicting_business_key\",\"raw\":\"10::1009::1::979168267\",\"canonical\":\"10::1009::1::979168267\"}"
+      ],
+      "clean_file": "/runtime/runs/20260930T142636Z-939659b5/clean/ratings.dat",
+      "reject_file": "/runtime/runs/20260930T142636Z-939659b5/clean/ratings.rejected.jsonl",
+      "conflict_file": "/runtime/runs/20260930T142636Z-939659b5/clean/ratings.conflicts.jsonl"
+    }
+  },
+  "time_split": {
+    "source": "Hadoop quality summaries",
+    "before": {
+      "train": 1062919,
+      "validation": 5437,
+      "test": 5368
+    },
+    "after": {
+      "train": 989404,
+      "validation": 5437,
+      "test": 5368
+    },
+    "definition": "train <= T1; validation T1 < timestamp <= T2; test timestamp > T2 and within historical window"
+  },
+  "notes": [
+    "评分和清洗文件均由本任务启动的 Hadoop Streaming mapper/reducer 产生。",
+    "rejected 文件保留原始行及规则原因，不能把隔离行当作已修复。"
+  ],
+  "agent_explanation": "任务 `20260930T142636Z-939659b5`：按给定默认规则清洗 MovieLens 1M。固定边界 `T1=2002-08-04T23:40:58Z`、`T2=2002-11-16T20:45:24Z`，后续迭代复用；`Up-to-date` 判定窗口为 `2000-01-01` 至 `2004-11-09`，T1/T2 仅用于区间计数。\n\n## 1. 清洗前后五维评估\n\n| 维度 | 清洗前 | 清洗后 | 变化 |\n|---|---:|---:|---:|\n| Accurate | 91.94 | 100.0 | +8.06 |\n| Complete | 97.65 | 100.0 | +2.35 |\n| Unique | 89.48 | 100.0 | +10.52 |\n| Up-to-date | 93.35 | 100.0 | +6.65 |\n| Consistent | 90.12 | 100.0 | +9.88 |\n\n这里的“100.0”是清洗后保留记录对给定规则的满足率，不是原始数据真实质量 100%。\n\n## 2. 清洗动作分解：修复、去重、隔离要分开看\n\n| 表 | 清洗后总量 | 修复 repaired | 拒绝/隔离 rejected | 去重 duplicates | 冲突 conflicts |\n|---|---:|---:|---:|---:|---:|\n| users | 6112 | 0 | 499 | 118 | 217 |\n| movies | 3941 | 25 | 302 | 117 | 105 |\n| ratings | 1000209 | 0 | 114025 | 17257 | 18750 |\n\n拒绝原因计数：\n- users：字段数量/缺失值 199，职业或邮编无效 100，用户人口属性无效 200。\n- movies：字段数量/缺失值 128，未知类型 174；另有 25 条被修复。\n- ratings：字段数量/缺失值 27006，非数值字段 24005，评分或 ID 非法 16504，时间戳越窗 25506，未知电影 10502，未知用户 10502。\n\n关键点：\n- `users`、`ratings` 的 `repaired=0`，说明主要靠隔离、去重和冲突处理，不是修复。\n- `movies` 只修复了 25 条。\n- 被拒绝行保存在 `*.rejected.jsonl`，冲突行保存在 `*.conflicts.jsonl`，不能当作已修复数据。\n- 清洗后 `ratings` 为 1,000,209 条，其中 train=989,404、validation=5,437、test=5,368。\n\n## 3. 仍存在的问题与五维局限\n\n1. 清洗后五维为 100% 主要因为问题行被排除：缺失字段行被拒绝导致 Complete 变高；非法值被拒绝导致 Accurate 变高；重复/冲突被去重或隔离导致 Unique 变高；未知引用被拒绝导致 Consistent 变高；越窗时间戳被隔离导致 Up-to-date 变高。它们不代表问题已被修复。\n2. 仍有大量隔离和冲突数据：users 拒绝 499、movies 拒绝 302、ratings 拒绝 114,025；冲突 users 217、movies 105、ratings 18,750。这些数据仍存在，只是未进入清洗后主文件。\n3. 五维指标只反映给定规则覆盖范围：格式和跨表引用一致，不代表用户自填属性现实真实；历史数据时效性只能按固定窗口判断，不能证明“最新”。\n4. 清洗后指标没有纳入被拒绝和冲突数据，因此评估结果对保留集乐观；若下游使用全量历史，需要单独评估这些隔离数据的分布影响。\n5. T1/T2 是固定边界，后续迭代必须复用，不能重新定义边界来改变区间计数。"
+}

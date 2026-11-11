@@ -1,86 +1,72 @@
-# MovieLens 1M Hadoop 数据治理 Agent（迭代一 MVP）
+# MovieLens 1M 数据分析 Agent
 
-这个仓库提供一个可以端到端演示的最小实现：用户在 Streamlit 输入一次自然语言请求，Agent 启动 Hadoop Streaming 任务，先对 `ml-1m` 原始数据评分，再用同一套规则清洗、去重和隔离，最后对清洗结果再次评分。DeepSeek API 只用于解释已经生成的 Hadoop 事实，五维分数和清洗文件不会由模型生成。
+这个项目使用 Hadoop Streaming 清洗 MovieLens 1M 并计算五维数据质量分数，在登记的清洗数据和 T1/T2 时间边界上训练六种机器学习算法。网页工作台提供自然语言查询、会话历史、分类预测、用户群体、二维降维图和报告下载；页面通过轻量 HTTP 服务调用现有 Agent，不需要前端构建工具。DeepSeek 可辅助识别含糊请求；结果解释由 Agent 根据实际工具输出生成。未配置 API 时，常见中文请求和全部确定性查询仍可用。
 
-## 运行环境
+## 启动
 
-- Docker Engine、Docker Compose 和 Bash。
-- Python 3.11 或更新版本，用于数据初始化；脚本只使用标准库。
-- DeepSeek 解释需要在 `.env` 中配置 `DEEPSEEK_API_KEY`，可选项见 `.env.example`。
+需要 Docker Engine、Docker Compose、Bash 和 Python 3.11 或更新版本。数据初始化脚本只使用 Python 标准库。如果 `runtime/latest_report.json` 和已登记的清洗文件不存在，先从页面明确发起“执行清洗 MovieLens 1M 并评估五维质量”，再点击“训练新实验”。提交包不包含原始数据和本机运行产物，具体准备步骤见 `提交说明.md`。
 
-首次构建会拉取 `bde2020/hadoop-base:2.0.0-hadoop3.2.1-java8`，复制 Hadoop/Java 运行时到 Python 镜像并安装 Streamlit，镜像较大，请预留磁盘和网络时间。
-
-## 数据初始化与启动
-
-初始化脚本从[课程网盘](https://box.nju.edu.cn/d/5366547b75e549ac814b/files/?p=%2Fml-1m.zip&dl=1)下载 `ml-1m-local-raw-v1`，校验压缩包及数据文件的 SHA-256，将三份数据文件与许可说明 `README` 写入 `ml-1m/`。已有相同数据时直接通过；已有文件不完整或属于其他版本时停止并保留原文件。
+初始化脚本从[课程网盘](https://box.nju.edu.cn/d/5366547b75e549ac814b/files/?p=%2Fml-1m.zip&dl=1)下载 `ml-1m-local-raw-v1`，校验压缩包及文件的 SHA-256，将三份数据文件和许可说明保存到 `ml-1m/`。该数据版本与随文实验输入一致。
 
 ```bash
 python3 scripts/init_data.py
 ./run.sh
 ```
 
-`run.sh` 会自动调用初始化脚本，也可直接执行它完成数据准备和服务启动。缺少 `.env` 时，启动脚本从 `.env.example` 创建配置文件。配置 API 后执行 `docker compose up -d --force-recreate`；API 未配置时仍可执行 Hadoop 清洗与质量评分，模型解释不可用。
+`run.sh` 自动调用初始化脚本，也可直接运行。重复运行会校验已有数据；已有文件不完整或属于其他版本时停止并保留原文件。
 
-浏览器打开 <http://localhost:8501>，点击“运行 Hadoop 清洗与评估”。运行日志和报告会保存在宿主机 `runtime/runs/<task_id>/`，最新报告是 `runtime/latest_report.json`。停止服务：
+打开 <http://localhost:8501>。运行 `docker compose down` 停止服务。启动脚本会在缺少 `.env` 时从 `.env.example` 创建配置文件；DeepSeek 可选。Docker 会将源代码只读挂载到容器，将所有运行产物写入 `runtime/`。设置 `DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL` 时只通过 `.env` 或环境变量传入，不要提交密钥。
 
-```bash
-docker compose down
-```
-
-也可以不用前端直接运行 Agent CLI：
+已有模型直接加载，不会因普通提问重复训练。若清洗数据版本改变，在页面点击“训练新实验”，或运行：
 
 ```bash
-docker compose run --rm movielens-agent python3 /app/agent.py \
-  '请使用默认规则清洗 MovieLens 1M，并解释清洗前后五维变化'
+docker compose run --rm --no-deps movielens-agent python3 /app/ml_experiment.py train
+# 指定二维之外的目标维数，例如 3 维
+docker compose run --rm --no-deps movielens-agent python3 /app/ml_experiment.py train --components 3
+# 固定两种聚类算法均使用 5 群
+docker compose run --rm --no-deps movielens-agent python3 /app/ml_experiment.py train --clusters 5
 ```
 
-## Hadoop 任务链
+训练创建 `runtime/experiments/<experiment_id>/`，并在成功完成后更新 `runtime/latest_experiment.json`。每次运行都生成独立目录，迭代一清洗数据与报告不会被训练程序覆盖。要保持默认二维图，请使用默认训练命令。也可以在容器内调用 Agent：
 
-`app/pipeline.py` 对三个 `.dat` 文件分别启动真实的 `hadoop jar ... hadoop-streaming-*.jar` 作业，强制使用 `fs.defaultFS=file:///` 和 Hadoop local framework，使单容器即可复现，不依赖宿主机安装 Hadoop。每个质量作业由 `quality_mapper.py` 与 `quality_reducer.py` 产生 JSON 摘要；每个清洗作业由 `clean_mapper.py` 与 `clean_reducer.py` 产生清洗行、隔离行和重复行。驱动程序只读取 Hadoop 输出并组装报告，不计算或填充分数。
-
-清洗规则版本为 `default-v1`：
-
-- `users.dat`：字段数量、ID、性别、年龄编码、职业编码和邮编必须有效。
-- `movies.dat`：字段数量、MovieID、标题和 18 个已知类型必须有效。
-- `ratings.dat`：字段数量、用户/电影 ID、1—5 整数评分和历史时间窗口必须有效，并且必须引用有效用户和电影。
-- 通过业务键去重：用户按 UserID，电影按 MovieID，评分按 UserID + MovieID + Timestamp。被隔离或去重的行仍保存在任务目录中，不能被表述为“已修复”。
-- 报告还包含每张表的隔离原因计数、少量原始行示例和去重示例，便于 Agent 追问时引用实际证据。
-
-五维分数使用同一套 Hadoop 输出口径：
-
-| 维度 | 定义 |
-| --- | --- |
-| Accurate | 语义约束满足率（评分范围、ID、时间窗口等） |
-| Complete | 必需字段非空且字段数量正确的行比例 |
-| Unique | 业务键去重后的行数 / 总行数 |
-| Up-to-date | ratings 时间戳落在 2000-01-01 至 2004-11-09 窗口内的比例 |
-| Consistent | 解析、类别取值及 ratings 跨表引用均满足规则的行比例 |
-
-格式正确不能证明用户自填人口属性的现实真实性；`Up-to-date` 也只是历史窗口判断。`T1/T2` 暂按有效 ratings 时间范围的 80%/90% 固定切分登记，后续迭代应沿用任务报告里的边界。
-
-## 当前数据检查
-
-初始化脚本获取的实验输入包含用户记录 6,946 条、电影记录 4,465 条和评分记录 1,150,241 条。该版本在 MovieLens 1M 官方原版的基础上增加了约 15% 的记录，包含字段数量错误、分隔符错误、重复行和越界时间戳等异常。任务报告给出原始与清洗后计数、隔离数、去重数和五维评分。
-
-本次容器验证任务 `20260930T134854Z-57b1da18` 已完整跑通：原始 `users/movies/ratings` 行数为 `6,946 / 4,465 / 1,150,241`，清洗后为 `6,112 / 3,941 / 1,000,209`；隔离行数为 `499 / 302 / 114,025`，完全重复行数为 `118 / 117 / 17,257`，业务键冲突行数为 `217 / 105 / 18,750`，修复行数为 `0 / 25 / 0`。五维分数（清洗前 → 清洗后）为 `Accurate 91.94 → 100.00`、`Complete 97.65 → 100.00`、`Unique 89.48 → 100.00`、`Up-to-date 93.35 → 100.00`、`Consistent 90.12 → 100.00`。T1/T2 区间验证由 Hadoop 输出：清洗前 train/validation/test 为 `1,062,919 / 5,437 / 5,368`，清洗后为 `989,404 / 5,437 / 5,368`。这些数字来自 `runtime/latest_report.json` 中对应任务的 Hadoop 输出；重新运行会生成新的任务标识和报告。完整交付核对见 `DELIVERY_CHECKLIST.md`。
-
-## 目录
-
-```text
-docker-compose.yml          单容器可复现 Hadoop + Streamlit 环境
-Dockerfile                  Hadoop 3.2.1/Java 8 + Python 3.11 + Streamlit
-run.sh                      初始化数据、构建并启动
-scripts/init_data.py        下载并校验课程实验数据
-.env.example                API 配置模板
-app/pipeline.py             Hadoop 作业编排与报告聚合
-app/hadoop_jobs/            Streaming mapper/reducer
-app/agent.py                Agent 工具层与 DeepSeek 调用
-app/streamlit_app.py        简易前端
-ml-1m/                      本地输入数据（只读挂载）
-runtime/                    运行报告、清洗数据与日志
-docs/                       课程需求文档
+```bash
+docker compose run --rm --no-deps movielens-agent python3 /app/agent.py '预测 UserID 1 对 MovieID 1 是否打高分'
+docker compose run --rm --no-deps movielens-agent python3 /app/agent.py '比较 K-Means 与层次聚类的用户群体'
+docker compose run --rm --no-deps movielens-agent python3 /app/agent.py '比较 PCA 与 SVD 的二维降维结果'
 ```
 
-## 故障定位
+## 分析口径
 
-如果任务失败，先查看 `runtime/runs/<task_id>/logs/`，或执行 `docker compose logs -f movielens-agent`。页面在 Hadoop 作业未成功时不会展示预置分数。DeepSeek 暂时不可用时，Hadoop 报告仍然保留，页面会明确标注解释调用失败，不会替换真实评分。
+| 任务 | 算法与数据 | 结果 |
+| --- | --- | --- |
+| 数据质量 | Hadoop Streaming 对原始、清洗后数据使用同一套 `default-v1` 规则 | Accurate、Complete、Unique、Up-to-date、Consistent 及隔离、冲突和去重记录 |
+| 分类 | 逻辑回归、决策树；标签为 `Rating >= 4` | 高分概率、阈值、Precision、Recall、F1、ROC-AUC 和混淆矩阵 |
+| 聚类 | K-Means、Ward 层次聚类；训练期用户类型偏好画像 | 群体归属、大小、偏好、代表用户和轮廓系数 |
+| 降维 | PCA、Truncated SVD；复用同一用户画像 | 坐标、解释方差比例、重构误差、运行时间、数据数组大小及聚类对照 |
+
+分类训练事件的历史计数与均值只使用严格早于事件时间戳的评分，同秒事件不互相借用。验证集、测试集和交互预测都使用 T1 截止时的训练历史快照。逻辑回归与决策树在同一数据切分和特征上比较；验证集选择参数及阈值，测试集用于最终评价。交互预测若发现目标组合曾在训练期出现，会先从历史聚合中扣除该组合评分并给出样本内提示；该预测不能当成样本外评价。
+
+用户画像只用训练期评分。未看过的电影类型对应中性偏差，不表示用户不喜欢该类型。聚类仅为训练期已有用户登记群体；可查询单个用户或“用户 1、2、3”这类集合在已有模型中的归属，不会为该子集重新聚类。层次聚类没有新用户直接预测接口。降维前后固定用户集合、群体数与对应聚类算法；两个空间的轮廓系数分别在各自空间计算，不能解释成相同量纲的信息保留率。PCA 和 SVD 在当前已中心化的稠密特征矩阵上可能得到近似相同的二维表示。
+
+## 产物与版本
+
+- `runtime/latest_report.json`：最近一次 Hadoop 清洗报告，包含清洗数据版本、规则版本及 T1/T2。
+- `runtime/runs/<task_id>/`：独立的 Hadoop 任务文件、日志和清洗数据。
+- `runtime/latest_experiment.json`：最近一次成功实验的索引。
+- `runtime/experiments/<experiment_id>/report.json`：模型参数、时间边界、验证和测试指标、画像及降维报告。
+- 同一实验目录中的 `*.joblib`：分类管道、聚类和降维模型；`*.csv`：T1 快照、用户画像、群体归属和坐标。
+- `app/ml_experiment.py` 提供 `source_report()`、`read_clean()`；`app/ml_tools.py` 提供 `experiment()` 及六个独立算法函数，可供迭代三读取当前版本。
+
+当前清洗版本、实验指标、课程材料核对和 DeepSeek 联网验证结果见 [迭代二实验报告](docs/迭代二实验报告.md)。已核对项目外的课程目录 `D:\南京大学\课程\大数据分析`：分类 PPT 与作业四材料明确包含并选用了逻辑回归和决策树；该目录目前未见聚类、降维 PPT，相关算法仍需在教师提供课件后核对。
+
+汇报前的检查命令、需求核对状态和约 7 分钟的操作顺序见 [迭代二快捷检查与演示](docs/迭代二快捷检查与演示.md)。
+
+## 验证
+
+```bash
+docker compose run --rm --no-deps movielens-agent python3 -m unittest -v test_iteration2
+docker compose ps
+curl -fsS http://localhost:8501/health
+```
+
+测试覆盖 T1/T2 和数据版本对应关系、同秒历史特征隔离、六个独立工具、Agent 路由、未知 ID 与非法维数。Hadoop 回归应在单独的 `RUNTIME_DIR` 下执行，以免改写当前默认报告。2026-10-21 已使用现有 `.env` 凭证实际调用 DeepSeek API，并验证英文用户请求能经联网意图识别调用两种聚类工具；这次验证不保证外部服务此后始终可用。

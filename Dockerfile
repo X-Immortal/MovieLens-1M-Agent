@@ -10,7 +10,8 @@ COPY --from=hadoop /opt/hadoop-3.2.1 /opt/hadoop-3.2.1
 COPY --from=hadoop /etc/hadoop /etc/hadoop
 COPY --from=hadoop /usr/lib/jvm/java-8-openjdk-amd64 /usr/lib/jvm/java-8-openjdk-amd64
 
-RUN python -m pip install --no-cache-dir streamlit==1.49.1
+COPY requirements.txt /tmp/requirements.txt
+RUN python -m pip install --no-cache-dir -r /tmp/requirements.txt
 
 WORKDIR /app
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
